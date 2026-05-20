@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ApiProdutos.DataContexts;
+using ApiProdutos.Models;
 
 namespace ApiProdutos.Controllers
 {
@@ -6,27 +9,68 @@ namespace ApiProdutos.Controllers
     [Route("produtos")]
     public class ProdutoController : ControllerBase
     {
-        [HttpPost]
-        public IActionResult Criar([FromBody] object produto)
+        private readonly AppDbContext _context;
+
+        public ProdutoController(AppDbContext context)
         {
-            return Ok(new { mensagem = "Produto criado com sucesso" });
+            _context = context;
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Criar([FromBody] Produto produto)
+        {
+            _context.Produtos.Add(produto);
+            await _context.SaveChangesAsync();
+            return Ok(new { mensagem = "Produto criado com sucesso", produto });
         }
 
         [HttpGet]
-        public IActionResult Listar()
+        public async Task<IActionResult> Listar()
         {
-            return Ok(new List<object>());
+            var produtos = await _context.Produtos.Include(p => p.Categoria).ToListAsync();
+            return Ok(produtos);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> ObterPorId(int id)
+        {
+            var produto = await _context.Produtos.Include(p => p.Categoria).FirstOrDefaultAsync(p => p.Id == id);
+            if (produto == null)
+            {
+                return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
+            }
+            return Ok(produto);
         }
 
         [HttpPut("{id}")]
-        public IActionResult Atualizar(int id, [FromBody] object produto)
+        public async Task<IActionResult> Atualizar(int id, [FromBody] Produto produtoAtualizado)
         {
-            return Ok(new { mensagem = $"Produto {id} atualizado" });
+            var produto = await _context.Produtos.FindAsync(id);
+            if (produto == null)
+            {
+                return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
+            }
+
+            produto.Nome = produtoAtualizado.Nome;
+            produto.Descricao = produtoAtualizado.Descricao;
+            produto.Preco = produtoAtualizado.Preco;
+            produto.CategoriaId = produtoAtualizado.CategoriaId;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { mensagem = $"Produto {id} atualizado", produto });
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Deletar(int id)
+        public async Task<IActionResult> Deletar(int id)
         {
+            var produto = await _context.Produtos.FindAsync(id);
+            if (produto == null)
+            {
+                return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
+            }
+
+            _context.Produtos.Remove(produto);
+            await _context.SaveChangesAsync();
             return Ok(new { mensagem = $"Produto {id} removido" });
         }
     }
