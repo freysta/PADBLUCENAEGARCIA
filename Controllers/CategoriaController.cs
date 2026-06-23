@@ -1,73 +1,65 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ApiProdutos.DataContexts;
-using ApiProdutos.Models;
+using ApiProdutos.Dtos;
+using ApiProdutos.Services;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApiProdutos.Controllers
 {
+    [Authorize]
     [ApiController]
-    [Route("categorias")]
+    [ApiVersion("1.0")]
+    [Route("v{version:apiVersion}/categorias")]
     public class CategoriaController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly CategoriaService _service;
 
-        public CategoriaController(AppDbContext context)
+        public CategoriaController(CategoriaService service)
         {
-            _context = context;
+            _service = service;
         }
 
         [HttpPost]
-        public async Task<IActionResult> Criar([FromBody] Categoria categoria)
+        public async Task<IActionResult> Criar([FromBody] CategoriaDto dto)
         {
-            _context.Categorias.Add(categoria);
-            await _context.SaveChangesAsync();
-            return Ok(new { mensagem = "Categoria criada com sucesso", categoria });
+            var result = await _service.Create(dto);
+            return Ok(new { mensagem = "Categoria criada com sucesso", categoria = result });
         }
 
         [HttpGet]
         public async Task<IActionResult> Listar()
         {
-            var categorias = await _context.Categorias.ToListAsync();
+            var categorias = await _service.FindAll();
             return Ok(categorias);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> ObterPorId(int id)
         {
-            var categoria = await _context.Categorias.FindAsync(id);
+            var categoria = await _service.FindById(id);
             if (categoria == null)
-            {
                 return NotFound(new { mensagem = $"Categoria com ID {id} não encontrada" });
-            }
+
             return Ok(categoria);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Atualizar(int id, [FromBody] Categoria categoriaAtualizada)
+        public async Task<IActionResult> Atualizar(int id, [FromBody] CategoriaDto dto)
         {
-            var categoria = await _context.Categorias.FindAsync(id);
+            var categoria = await _service.Update(id, dto);
             if (categoria == null)
-            {
                 return NotFound(new { mensagem = $"Categoria com ID {id} não encontrada" });
-            }
 
-            categoria.Nome = categoriaAtualizada.Nome;
-
-            await _context.SaveChangesAsync();
             return Ok(new { mensagem = $"Categoria {id} atualizada", categoria });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Deletar(int id)
         {
-            var categoria = await _context.Categorias.FindAsync(id);
-            if (categoria == null)
-            {
+            var success = await _service.Delete(id);
+            if (!success)
                 return NotFound(new { mensagem = $"Categoria com ID {id} não encontrada" });
-            }
 
-            _context.Categorias.Remove(categoria);
-            await _context.SaveChangesAsync();
             return Ok(new { mensagem = $"Categoria {id} removida" });
         }
     }

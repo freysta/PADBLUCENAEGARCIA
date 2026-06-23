@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApiProdutos.Controllers
 {
+    [Authorize]
     [ApiController]
-    [Route("relatorios")]
+    [ApiVersion("1.0")]
+    [Route("v{version:apiVersion}/relatorios")]
     public class RelatorioController : ControllerBase
     {
         [HttpGet("vendas")]

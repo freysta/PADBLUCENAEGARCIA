@@ -1,76 +1,65 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ApiProdutos.DataContexts;
-using ApiProdutos.Models;
+using ApiProdutos.Dtos;
+using ApiProdutos.Services;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApiProdutos.Controllers
 {
+    [Authorize]
     [ApiController]
-    [Route("produtos")]
+    [ApiVersion("1.0")]
+    [Route("v{version:apiVersion}/produtos")]
     public class ProdutoController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ProdutoService _service;
 
-        public ProdutoController(AppDbContext context)
+        public ProdutoController(ProdutoService service)
         {
-            _context = context;
+            _service = service;
         }
 
         [HttpPost]
-        public async Task<IActionResult> Criar([FromBody] Produto produto)
+        public async Task<IActionResult> Criar([FromBody] ProdutoDto dto)
         {
-            _context.Produtos.Add(produto);
-            await _context.SaveChangesAsync();
-            return Ok(new { mensagem = "Produto criado com sucesso", produto });
+            var result = await _service.Create(dto);
+            return Ok(new { mensagem = "Produto criado com sucesso", produto = result });
         }
 
         [HttpGet]
         public async Task<IActionResult> Listar()
         {
-            var produtos = await _context.Produtos.Include(p => p.Categoria).ToListAsync();
+            var produtos = await _service.FindAll();
             return Ok(produtos);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> ObterPorId(int id)
         {
-            var produto = await _context.Produtos.Include(p => p.Categoria).FirstOrDefaultAsync(p => p.Id == id);
+            var produto = await _service.FindById(id);
             if (produto == null)
-            {
                 return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
-            }
+
             return Ok(produto);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Atualizar(int id, [FromBody] Produto produtoAtualizado)
+        public async Task<IActionResult> Atualizar(int id, [FromBody] ProdutoDto dto)
         {
-            var produto = await _context.Produtos.FindAsync(id);
+            var produto = await _service.Update(id, dto);
             if (produto == null)
-            {
                 return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
-            }
 
-            produto.Nome = produtoAtualizado.Nome;
-            produto.Descricao = produtoAtualizado.Descricao;
-            produto.Preco = produtoAtualizado.Preco;
-            produto.CategoriaId = produtoAtualizado.CategoriaId;
-
-            await _context.SaveChangesAsync();
             return Ok(new { mensagem = $"Produto {id} atualizado", produto });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Deletar(int id)
         {
-            var produto = await _context.Produtos.FindAsync(id);
-            if (produto == null)
-            {
+            var success = await _service.Delete(id);
+            if (!success)
                 return NotFound(new { mensagem = $"Produto com ID {id} não encontrado" });
-            }
 
-            _context.Produtos.Remove(produto);
-            await _context.SaveChangesAsync();
             return Ok(new { mensagem = $"Produto {id} removido" });
         }
     }
